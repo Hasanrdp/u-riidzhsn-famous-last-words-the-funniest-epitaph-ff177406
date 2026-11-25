@@ -30,6 +30,31 @@ MAX_CHARS = 150
 OUTPUT_PATH = "/output/entry.txt"
 
 
+def verify(path, data):
+    """Read the written file back and verify it byte-for-byte.
+
+    Returns True only when the on-disk bytes equal ``data`` exactly and
+    their SHA-256 matches the pinned expected hash; otherwise prints the
+    mismatch and raises SystemExit so a bad write can never report
+    success.
+    """
+    with open(path, "rb") as f:
+        written = f.read()
+    if written != data:
+        print("verify fail: written bytes differ from expected output",
+              file=sys.stderr)
+        raise SystemExit(1)
+    if len(written) != EXPECTED_BYTES:
+        print(f"verify fail: {len(written)} bytes, expected {EXPECTED_BYTES}",
+              file=sys.stderr)
+        raise SystemExit(1)
+    if hashlib.sha256(written).hexdigest() != EXPECTED_SHA256:
+        print("verify fail: written hash does not match EXPECTED_SHA256",
+              file=sys.stderr)
+        raise SystemExit(1)
+    return True
+
+
 def main() -> int:
     text = EPITAPH
     data = text.encode("utf-8")
@@ -54,11 +79,10 @@ def main() -> int:
     with open(OUTPUT_PATH, "wb") as f:
         f.write(data)
 
-    # Verify what was written before reporting success.
-    with open(OUTPUT_PATH, "rb") as f:
-        written = f.read()
-    if written != data:
-        print("gate fail: written bytes differ from expected output",
+    # Verify the written file byte-for-byte before reporting success.
+    verified = verify(OUTPUT_PATH, data)
+    if not verified:
+        print("verify fail: read-back verification rejected the output",
               file=sys.stderr)
         return 1
 
